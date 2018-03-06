@@ -1,0 +1,119 @@
+---
+title: Google Cloud & NCAA® ML Competition 2018-Women's 
+author: "Pranjal Vijay"
+date: "March 6, 2018"
+output: html_document
+---
+
+###Loading the libraries
+```{r}
+
+library(caret)
+library(readr)
+library(dplyr)
+library(magrittr)
+library(ModelMetrics)
+library(ggplot2)
+library(stats)
+```
+
+####Loading the WNCAATouneyCompactResults Data
+
+```{r}
+WNCAAT_result <- read.csv("C:/Users/ddddd/Comptitions/Kaggle/Google Cloud & NCAA/WNCAATourneyCompactResults.csv",stringsAsFactors = FALSE)
+
+```
+
+##Research question
+
+Stage 1 - You should submit predicted probabilities for every possible matchup in the past 4 NCAA® tournaments (2014-2017).
+
+#DAta Exploration
+
+```{r}
+names(WNCAAT_result)
+```
+```{r}
+str(WNCAAT_result)
+```
+
+
+##Data Preprocessing
+
+```{r}
+WNCAAT_result %>% 
+  filter( Season != "NA", DayNum != "NA", WTeamID != "NA", WScore != "NA", LTeamID != "NA", LScore != "NA", NumOT != "NA") %>%
+  select(Season, DayNum, WTeamID, WScore , LTeamID, LScore, NumOT) %>% 
+  group_by(DayNum, WTeamID, WScore , LTeamID, LScore, NumOT) %>% 
+  summarise(count=n())
+```
+
+
+######As asked for stage 1, I filterized the data for season 2013 to 2017
+
+```{r}
+WNCAAT_result %>% 
+  filter(Season >= 2013, Season != "NA", DayNum != "NA", WTeamID != "NA", WScore != "NA", LTeamID != "NA", LScore != "NA",  NumOT != "NA") %>%
+  select(Season,DayNum, WTeamID, WScore , LTeamID, LScore, NumOT) %>% 
+  #mutate(Seasons = Season >= 2013 )
+  group_by(DayNum, WTeamID, WScore , LTeamID, LScore, NumOT) %>% 
+  summarise(count=n())
+```
+
+
+####Mormalization & Data Partitioning
+```{r}
+normalize <- function(WNCAAT_result) {
+ return ((WNCAAT_result - min(WNCAAT_result)) / (max(WNCAAT_result) - min(WNCAAT_result)))
+}
+inTrain <- createDataPartition(y=WNCAAT_result$WTeamID,
+                              p=0.90, list=FALSE)
+training <- WNCAAT_result[inTrain,]
+testing <- WNCAAT_result[-inTrain,]
+
+dim(training)
+dim(testing)
+```
+
+####glm model
+
+```{r}
+ m <- model.matrix( 
+  ~ WScore  + LScore + Season + DayNum  + WScore + LTeamID + LScore + NumOT+WTeamID,
+  data = training )
+ 
+training <- data.frame(training, m)
+
+glm_model <- glm(WTeamID ~ WScore  + LScore + Season + DayNum  + WScore + LTeamID + LScore + NumOT,
+                 data = training)
+summary(glm_model)
+```
+
+
+
+###neural network 
+
+```{r}
+form <- as.formula(glm_model)
+
+```
+
+#####Max-Min Normalization
+```{r}
+
+
+library(nnet)
+library(neuralnet)
+#_nnet <- nnet(form, data=training, size=4, MaxNWts=100)
+
+Solution<- neuralnet(form, data=training , hidden=c(5,5), linear.output=FALSE,  threshold=0.0000001)
+
+
+#####Preditions
+prediction(Solution)
+
+plot(Solution)
+
+ 
+
+```
